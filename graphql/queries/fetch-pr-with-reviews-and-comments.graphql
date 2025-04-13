@@ -1,0 +1,60 @@
+query FetchPRData($owner: String!, $name: String!, $prCursor: String, $reviewCursor: String, $commentCursor: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequests(first: 50, after: $prCursor) {
+      edges {
+        cursor
+        node {
+          id
+          number
+          title
+          createdAt
+          author {
+            login
+          }
+          # Limit to 50 due to rate limit
+          reviews(first: 50, after: $reviewCursor) {
+            edges {
+              cursor
+              node {
+                id
+                author {
+                  login
+                }
+                createdAt
+                state
+                comments(first: 50, after: $commentCursor) {
+                  # Inline comments on reviews
+                  edges {
+                    cursor
+                    node {
+                      id
+                      author {
+                        login
+                      }
+                      createdAt
+                      bodyText
+                    }
+                  }
+                }
+              }
+            }
+          }
+          # Limit to 50 due to rate limit
+          comments(first: 50, after: $commentCursor) {
+            edges {
+              cursor
+              node {
+                id
+                author {
+                  login
+                }
+                createdAt
+                bodyText
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
