@@ -12,7 +12,9 @@ import {
   FetchIssues,
   FetchIssuesQuery,
   FetchPullRequests,
-  FetchPullRequestsQuery
+  FetchPullRequestsQuery,
+  FetchPrData,
+  FetchPrDataQuery
 } from '../../../../graphql/graphql-types';
 import { AppConfig } from '../../../environments/environment';
 import { getNumberOfPages } from '../../shared/lib/github-paginator-parser';
@@ -22,6 +24,7 @@ import { IssuesCacheManager } from '../models/github/cache-manager/issues-cache-
 import { GithubEvent } from '../models/github/github-event.model';
 import { GithubGraphqlIssue } from '../models/github/github-graphql.issue';
 import { GithubGraphqlIssueOrPr } from '../models/github/github-graphql.issue-or-pr';
+import { GithubGraphqlPullRequestWithReviewsAndComments } from '../models/github/github-graphql.pr-comments-reviews';
 import RestGithubIssueFilter from '../models/github/github-issue-filter.model';
 import { GithubIssue } from '../models/github/github-issue.model';
 import { GithubResponse } from '../models/github/github-response.model';
@@ -64,6 +67,7 @@ export class GithubService {
   private issuesCacheManager = new IssuesCacheManager();
   private issuesLastModifiedManager = new IssueLastModifiedManagerModel();
   private issueQueryRefs = new Map<number, QueryRef<FetchIssueQuery>>();
+  private prQueryRefs = new Map<string, QueryRef<FetchPrDataQuery>>();
 
   constructor(private errorHandlingService: ErrorHandlingService, private apollo: Apollo, private logger: LoggingService) {}
 
@@ -470,6 +474,42 @@ export class GithubService {
 
   getProfilesData(): Promise<Response> {
     return fetch(AppConfig.clientDataUrl);
+  }
+
+  fetchPullRequestData(): Observable<GithubGraphqlPullRequestWithReviewsAndComments[]> {
+    const owner = ORG_NAME;
+    const name = REPO;
+    const queryKey = `${owner}-${name}`;
+    if (!this.prQueryRefs.has(queryKey)) {
+      const newQueryRef = this.apollo.watchQuery<FetchPrDataQuery>({
+        query: FetchPrData,
+        variables: { owner, name, prCursor: null, reviewCursor: null, commentCursor: null } // Initial cursors
+      });
+      this.prQueryRefs.set(queryKey, newQueryRef);
+    }
+
+    const queryRef = this.prQueryRefs.get(queryKey);
+
+    return queryRef.valueChanges.pipe(
+      map((response: ApolloQueryResult<FetchPrDataQuery>) => {
+        if (!response.data || !response.data.repository) {
+          throw new Error('Failed to fetch pull request data: Invalid response structure.');
+        }
+        const prEdges = response.data.repository.pullRequests.edges;
+
+        if (!prEdges) {
+          return [];
+        }
+        return prEdges.map((edge) => new GithubGraphqlPullRequestWithReviewsAndComments(edge.node));
+      }),
+      catchError((err) => {
+        this.errorHandlingService.handleError(err); // Ensure errors are handled
+        return throwError(err); // Re-throw or return a user-friendly error
+      })
+      // throwIfEmpty(() => { // Removed throwIfEmpty
+      //   return new HttpErrorResponse({ status: 304 }); //Not sure if this is the correct use
+      // })
+    );
   }
 
   /**
