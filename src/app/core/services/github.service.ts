@@ -11,10 +11,10 @@ import {
   FetchIssueQuery,
   FetchIssues,
   FetchIssuesQuery,
-  FetchPullRequests,
-  FetchPullRequestsQuery,
   FetchPrData,
-  FetchPrDataQuery
+  FetchPrDataQuery,
+  FetchPullRequests,
+  FetchPullRequestsQuery
 } from '../../../../graphql/graphql-types';
 import { AppConfig } from '../../../environments/environment';
 import { getNumberOfPages } from '../../shared/lib/github-paginator-parser';

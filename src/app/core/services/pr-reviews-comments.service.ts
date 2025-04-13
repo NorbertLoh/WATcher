@@ -56,7 +56,7 @@ export class PullRequestWithCommentsAndReviewsService {
   }
 
   getLatestPullRequest(id: number): Observable<GithubGraphqlPullRequestWithReviewsAndComments> {
-    return this.githubService.fetchPullRequestData('', '').pipe(
+    return this.githubService.fetchPullRequestData().pipe(
       map((prs: GithubGraphqlPullRequestWithReviewsAndComments[]) => {
         const thePr = prs.find((pr) => pr.number === id);
         if (thePr) {
